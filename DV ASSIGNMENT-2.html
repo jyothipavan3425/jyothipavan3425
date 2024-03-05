@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dv Assignment</title>
+    <script src="https://d3js.org/d3.v7.js"></script>
+    <style>
+        .container {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        table {
+            border-color: 2px solid black; 
+            border-collapse: collapse;
+            padding: 15px;
+            font-size: 12px;
+            
+        }
+        thead{
+            border: solid black 3px;
+        }
+        th, td {
+            border: solid black 2px;
+            padding: 7px;
+            
+        }
+
+        .axis text {
+            font-family: sans-serif;
+            font-weight: bold;
+            font-size: 14pt;
+        }
+
+        svg {
+            width: 45%;
+            height: 40%;
+            
+            margin: 1%;
+            position: relative;
+        }
+
+        @media (max-width: 800px) {
+            .container {
+                flex-direction: column; /* Change to a column layout for small screens */
+            }
+
+            table,
+            svg {
+                width: 100%; /* Make both elements full width on smaller screens */
+            }
+        }
+
+        .LegendEstimatedCost {
+            fill: blue;
+        }
+
+        .LegendActualCost {
+            fill: orange;
+        }
+
+        .LegendSoldPrice {
+            fill: green;
+        }
+
+        .LegendMarginOfProfit {
+            fill: red;
+        }
+
+        .line {
+            stroke-width: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <table class="table"></table>
+        <svg></svg>
+    </div>
+    <script>
+
+        const margin = {
+            top: 30,
+            bottom: 40,
+            left: 60,
+            right:30
+        };
+
+        const svg = d3.select("svg");
+        const height = 800;
+        const width = 1000;
+        svg.attr("viewBox", "0 0 1000 800");
+
+        d3.csv('https://raw.githubusercontent.com/Jyothipavan1229/d3/main/output.csv').then(data => {
+            let filtered_data = data.map(d => {
+                return {
+                    EstimatedCost: +d['EstimatedCost'],
+                    ActualCost: +d['ActualCost'],
+                    SoldPrice: +d['SoldPrice'],
+                    Date: new Date(d['Date']),
+                    MarginOfProfit: +d['MarginOfProfit']
+                };
+            });
+
+            const xScale = d3.scaleTime()
+                .domain(d3.extent(filtered_data, d => d.Date))
+                .range([margin.left, width - margin.right]);
+
+            const yScale = d3.scaleLinear()
+                .domain([-500, d3.max(filtered_data, d => Math.max(+d.EstimatedCost, +d.ActualCost, +d.SoldPrice, +d.MarginOfProfit)) * 1.1])
+                .range([height - margin.bottom, margin.top]);
+
+            svg.append("g").attr("class", 'axis')
+                .attr("transform", `translate(0, ${height - margin.bottom})`)
+                .call(d3.axisBottom(xScale));
+
+            svg.append("g").attr("class", 'axis')
+                .attr("transform", `translate(${margin.left}, 0)`)
+                .call(d3.axisLeft(yScale));
+
+            const color = d3.scaleOrdinal(d3.schemeCategory10);
+
+            const lines = ["EstimatedCost", "ActualCost", "SoldPrice", "MarginOfProfit"];
+
+            const lineGroups = svg.selectAll(".line")
+                .data(lines)
+                .enter()
+                .append("g")
+                .attr("class", "line");
+
+            lineGroups.append("path")
+                .attr("d", key => {
+                    const lineGenerator = d3.line()
+                        .x(d => xScale(d.Date))
+                        .y(d => yScale(+d[key]));
+                    return lineGenerator(filtered_data);
+                })
+                .attr("stroke", key => color(key))
+                .attr("fill", "none");
+
+            const legend = svg.append('g')
+                .attr("class", "legend")
+                .attr("transform", "translate(0,50)")
+                .selectAll()
+                .data([
+                    { name: "EstimatedCost", class: "LegendEstimatedCost" },
+                    { name: "ActualCost", class: "LegendActualCost" },
+                    { name: "SoldPrice", class: "LegendSoldPrice" },
+                    { name: "MarginOfProfit", class: "LegendMarginOfProfit" }
+                ])
+                .enter()
+                .append("g")
+                .attr("class", d => d.class)
+                .attr("transform", (d, i) => {
+                    return `translate(${width / 1.3},${i * 20})`
+                })
+
+            legend.append("rect")
+                .attr('width', 10)
+                .attr('height', 10)
+                .attr('fill', d => color(d.name));
+
+            legend.append("text")
+                .text(d => d.name)
+                .attr("dx", 20)
+                .attr("dy", 10)
+                
+            function TableGenerator(data, container) {
+                const table = d3.select(container)
+                    .attr("class", 'table')
+                    .append("table");
+
+                // Header row
+                const thead = table.append("thead");
+                const headerRow = thead.append("tr");
+
+                // Add header cells
+                headerRow.selectAll("th")
+                    .data(Object.keys(data[0]))
+                    .enter().append("th")
+                    .text(d => d);
+
+                // Data rows
+                const tbody = table.append("tbody");
+                const rows = tbody.selectAll("tr")
+                    .data(data)
+                    .enter().append("tr");
+
+                // Add cells with data
+                const cells = rows.selectAll("td")
+                    .data(d => Object.values(d))
+                    .enter().append("td")
+                    .text(d => d);
+            }
+
+            TableGenerator(data, ".table");
+        });
+    </script>
+</body>
+</html>
